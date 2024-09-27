@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Catalog</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='css/list-all-products.css')}}">
+</head>
+<body>
+    <header>
+        <h1>Our Product Catalog</h1>
+    </header>
+    <main>
+        <div class="product-grid">
+            <!-- Início do loop de produtos -->
+            {% for product in products %}
+                <div class="product-card">
+                    <!-- <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image"> -->
+                    <h2 class="product-name">{{ product.name }}</h2>
+                    <p class="product-price">${{ product.price }}</p>
+                    <p class="product-quantity">Available: {{ product.quantity }}</p>
+                    <!-- <a href="/product/{{ product.id }}" class="product-link">View Details</a> -->
+                </div>
+            {% endfor %}
+            <!-- Fim do loop de produtos -->
+        </div>
+    </main>
+    <footer>
+        <p>&copy; 2024 Our Company</p>
+    </footer>
+</body>
+</html>
