@@ -1,0 +1,5 @@
+Products report:
+Produto -> pistola m1911 calibre .45, Quantidade -> 1, Preço -> 10396.84
+Produto -> Revólver RT 608 calibre .357, Quantidade -> 1, Preço -> 7780.41
+Produto -> Fuzil parafal calibre 7,62mm, Quantidade -> 1, Preço -> 19900
+Produto -> Espingarda cbc military calibre .12, Quantidade -> 1, Preço -> 6460
