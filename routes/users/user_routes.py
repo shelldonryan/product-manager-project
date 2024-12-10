@@ -19,7 +19,7 @@ def login():
             return redirect('/users/login')
 
         session['login_user'] = query[0]
-        session['user_type'] = query[3] 
+        session['user_type'] = query[3]
 
         return redirect('/product/listall')
 

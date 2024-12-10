@@ -2,11 +2,14 @@ from flask import Blueprint, jsonify, request
 from database import db_connection, product_dao as pd, user_dao as ud
 from utils import is_uuid, generate_uuid
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
+from datetime import timedelta
+import json
 
 
 api_bp = Blueprint("api", __name__, url_prefix='/api')
 
-@api_bp.route("/user/listall", methods=['GET'])
+@api_bp.route("/users/listall", methods=['GET'])
 def json_all_users():
     conn = db_connection()
 
@@ -18,7 +21,7 @@ def json_all_users():
     users = []
 
     for user in data:
-        users.api_bpend({
+        users.append({
             'id': user[0],
             'username': user[1],
             'type': user[3],
@@ -29,7 +32,7 @@ def json_all_users():
     }
     return jsonify(json)
 
-@api_bp.route("/user/verifyLogin")
+@api_bp.route("/users/verifyLogin", methods=['POST'])
 def verify_login():
     username = request.json['username']
     password = request.json['password']
@@ -39,24 +42,28 @@ def verify_login():
     if not data or not check_password_hash(data[2], password):
         return jsonify({'error': 'Invalid username or password'}), 401
     
-    return jsonify({'id': data[0], 'username': data[1], 'password': data[2], 'type': data[3]}), 200
+    token = create_access_token(identity=json.dumps({'id': data[0], 'username': data[1], 'type': data[3]}), expires_delta=timedelta(hours=1))
+    return jsonify({"token": token}), 200
 
-@api_bp.route('/user/register', methods=['POST'])
-def register():
-    username = request.json['username']
-    password = request.json['password']
-    typeUser = request.json['type']
+@api_bp.route('/users/register', methods=['POST'], endpoint = "signup")
+def signup():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    confirmPassword = request.json.get('confirm-password')
+    typeUser = request.json.get('type')
 
-    if ud.get_user(db_connection(), username):
-        return jsonify({'error': 'Username already exists'}), 409
+    if password != confirmPassword:
+        return jsonify({'error': 'Password is different'}, 401)
     
+    if ud.get_user(db_connection(), username):
+        return jsonify({'error': 'This user already exist'}, 401)
+
     idUser = generate_uuid()
-    hashed_password = generate_password_hash(password)
+    password_hash = generate_password_hash(password)
+    
+    ud.insert_user(db_connection(), idUser, username, password_hash, typeUser)
 
-    ud.add_user(db_connection(), idUser, username, hashed_password, typeUser)
-
-    return jsonify({'id': idUser, 'username': username, 'password': password, 'type': typeUser}), 201
-
+    return jsonify({'sucess': 'Registration successful'}), 201
 
 #---------------- API ROUTES PRODUCT --------------------------------
 @api_bp.route("/product/listall", methods=['GET'])
@@ -71,7 +78,7 @@ def json_all_products():
     products = []
 
     for product in data:
-        products.api_bpend(
+        products.append(
             {   
                 'id': product[0],
                 'name': product[1],
@@ -87,23 +94,25 @@ def json_all_products():
 
     return jsonify(json)
 
-@api_bp.route("/product/getByUser/<string:userId>", methods=['GET'])
-def json_get_product_by_userId(userId):
+@api_bp.route("/product/getByUser", methods=['GET'])
+@jwt_required()
+def json_get_product_by_userId():
     conn = db_connection()
     
-    data = pd.get_product_by_userid(conn, userId)
+    current_user = json.loads(get_jwt_identity())
+
+    data = pd.get_product_by_userid(conn, current_user['id'])
     print(data)
 
     products = []
 
     for product in data:
-        products.api_bpend(
+        products.append(
             {   
                 'id': product[0],
                 'name': product[1],
                 'quantity': product[2],
                 'price': product[3],
-                'userId': product[4]
             }
         )
 
@@ -121,6 +130,7 @@ def json_get_product_by_userId(userId):
     return jsonify(response), 200 if data else 400
 
 @api_bp.route("/product/getByProduct/<string:keyProduct>", methods=['GET'])
+@jwt_required()
 def json_get_product(keyProduct):
     conn = db_connection()
     if is_uuid(keyProduct):
@@ -150,16 +160,24 @@ def json_get_product(keyProduct):
     return jsonify(response), 200 if data else 400
 
 @api_bp.route("/product/create", methods=['POST'])
+@jwt_required()
 def json_create_product():
     conn = db_connection()
 
     if conn is None:
         return jsonify({'error': 'Failed to connect to the database'}), 500
     
-    product = request.json["name"]
-    quantity = request.json["quantity"]
-    price = request.json["price"]
+    product = request.json.get('name')
+    quantity = request.json.get('quantity')
+    price = request.json.get('price')
 
-    pd.add_product(conn, product, quantity, price)
+    try:
+        current_user = json.loads(get_jwt_identity())
+        print(f"User identity: {current_user}")
+    except Exception as e:
+        print(f"Erro ao obter identidade JWT: {e}")
+        return jsonify({"error": str(e)}), 401
+    
+    pd.insert_product(conn, generate_uuid(), product, quantity, price, current_user['id'])
 
     return jsonify({"success": "Product created successfully"})
